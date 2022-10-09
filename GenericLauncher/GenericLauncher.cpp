@@ -1,5 +1,5 @@
 ﻿/*
-   Copyright 2017-2020 e-soul.org
+   Copyright 2017-2022 e-soul.org
    All rights reserved.
    Redistribution and use in source and binary forms, with or without modification, are permitted
    provided that the following conditions are met:
@@ -23,7 +23,6 @@ int main(int argc, char** argv)
 {
 	std::filesystem::path LauncherScript;
 	std::filesystem::path Executable = std::filesystem::path(argv[0]);
-
 	if (Executable.is_absolute())
 	{
 		LauncherScript = Executable.replace_extension(".bat");
@@ -32,7 +31,25 @@ int main(int argc, char** argv)
 	{
 		LauncherScript = (std::filesystem::current_path() / Executable).replace_extension(".bat");
 	}
-	
-	std::string Command = "\"" + LauncherScript.string() + "\"";
-	return std::system(Command.c_str());
+
+	std::string LauncherScriptStr = LauncherScript.string();
+
+	STARTUPINFO StartupInfo;
+	ZeroMemory(&StartupInfo, sizeof(StartupInfo));
+	StartupInfo.cb = sizeof(StartupInfo);
+
+	PROCESS_INFORMATION ProcessInformation;
+	ZeroMemory(&ProcessInformation, sizeof(ProcessInformation));
+
+	std::unique_ptr<char[]> CommandLine(new char[LauncherScriptStr.size() + 1] { '\0' });
+	std::copy_n(LauncherScriptStr.begin(), LauncherScriptStr.size(), CommandLine.get());
+	if (!CreateProcess(NULL, CommandLine.get(), NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &StartupInfo, &ProcessInformation))
+	{
+		return GetLastError();
+	}
+
+	CloseHandle(ProcessInformation.hProcess);
+	CloseHandle(ProcessInformation.hThread);
+
+	return 0;
 }
