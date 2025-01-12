@@ -20,4 +20,6 @@
 #pragma once
 
 #include <filesystem>
+#include <iostream>
+#include <format>
 #include <windows.h>

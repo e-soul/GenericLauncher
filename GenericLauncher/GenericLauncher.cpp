@@ -1,5 +1,5 @@
 ﻿/*
-   Copyright 2017-2022 e-soul.org
+   Copyright 2017-2023 e-soul.org
    All rights reserved.
    Redistribution and use in source and binary forms, with or without modification, are permitted
    provided that the following conditions are met:
@@ -19,37 +19,46 @@
 
 #include "GenericLauncher.h"
 
-int main(int argc, char** argv)
+int main()
 {
-	std::filesystem::path LauncherScript;
-	std::filesystem::path Executable = std::filesystem::path(argv[0]);
-	if (Executable.is_absolute())
+	char ModuleFilename[1024];
+	DWORD GetFilenameResult = GetModuleFileNameA(NULL, ModuleFilename, 1024);
+	if (0 == GetFilenameResult || 1024 == GetFilenameResult)
 	{
-		LauncherScript = Executable.replace_extension(".bat");
-	}
-	else
-	{
-		LauncherScript = (std::filesystem::current_path() / Executable).replace_extension(".bat");
+		std::cerr << "GetModuleFileNameA failed " << GetLastError() << std::endl;
+		return 1;
 	}
 
-	std::string LauncherScriptStr = LauncherScript.string();
+	std::filesystem::path Executable = std::filesystem::path(ModuleFilename);
+	std::filesystem::path LauncherScript = Executable.replace_extension(".bat");
+
+	std::unique_ptr<char[]> CommandLine(_strdup(std::format("cmd.exe /c {}", LauncherScript.string()).c_str()));
+	//std::unique_ptr<char[]> CommandLine(_strdup(LauncherScript.string().c_str()));
 
 	STARTUPINFO StartupInfo;
 	ZeroMemory(&StartupInfo, sizeof(StartupInfo));
 	StartupInfo.cb = sizeof(StartupInfo);
+	StartupInfo.dwFlags = STARTF_USESHOWWINDOW;
+	StartupInfo.wShowWindow = SW_HIDE;
 
-	PROCESS_INFORMATION ProcessInformation;
-	ZeroMemory(&ProcessInformation, sizeof(ProcessInformation));
+	PROCESS_INFORMATION ProcessInfo;
+	ZeroMemory(&ProcessInfo, sizeof(ProcessInfo));
 
-	std::unique_ptr<char[]> CommandLine(new char[LauncherScriptStr.size() + 1] { '\0' });
-	std::copy_n(LauncherScriptStr.begin(), LauncherScriptStr.size(), CommandLine.get());
-	if (!CreateProcess(NULL, CommandLine.get(), NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &StartupInfo, &ProcessInformation))
+	if (!CreateProcess(NULL, CommandLine.get(), NULL, NULL, FALSE, 0, NULL, NULL, &StartupInfo, &ProcessInfo))
 	{
-		return GetLastError();
+		std::cerr << "CreateProcess for " << CommandLine << " failed " << GetLastError() << std::endl;
+		return 2;
 	}
 
-	CloseHandle(ProcessInformation.hProcess);
-	CloseHandle(ProcessInformation.hThread);
+	WaitForSingleObject(ProcessInfo.hProcess, INFINITE);
 
-	return 0;
+	DWORD exitCode = 0;
+	if (!GetExitCodeProcess(ProcessInfo.hProcess, &exitCode))
+	{
+		std::cerr << "GetExitCodeProcess failed " << GetLastError() << std::endl;
+	}
+	CloseHandle(ProcessInfo.hProcess);
+	CloseHandle(ProcessInfo.hThread);
+
+	return exitCode;
 }
