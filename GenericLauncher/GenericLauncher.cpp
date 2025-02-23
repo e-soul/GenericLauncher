@@ -1,12 +1,12 @@
 ﻿/*
-   Copyright 2017-2023 e-soul.org
+   Copyright 2017-2025 e-soul.org
    All rights reserved.
    Redistribution and use in source and binary forms, with or without modification, are permitted
    provided that the following conditions are met:
    1. Redistributions of source code must retain the above copyright notice, this list of conditions
-	  and the following disclaimer.
+      and the following disclaimer.
    2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions
-	  and the following disclaimer in the documentation and/or other materials provided with the distribution.
+      and the following disclaimer in the documentation and/or other materials provided with the distribution.
    THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND ANY EXPRESS OR IMPLIED
    WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
    FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
@@ -17,13 +17,15 @@
    SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "GenericLauncher.h"
+#include <filesystem>
+#include <iostream>
+#include <windows.h>
 
-int main()
+int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ PWSTR pCmdLine, _In_ int nCmdShow)
 {
 	char ModuleFilename[1024];
 	DWORD GetFilenameResult = GetModuleFileNameA(NULL, ModuleFilename, 1024);
-	if (0 == GetFilenameResult || 1024 == GetFilenameResult)
+	if (0 == GetFilenameResult || 1024 <= GetFilenameResult)
 	{
 		std::cerr << "GetModuleFileNameA failed " << GetLastError() << std::endl;
 		return 1;
@@ -32,8 +34,7 @@ int main()
 	std::filesystem::path Executable = std::filesystem::path(ModuleFilename);
 	std::filesystem::path LauncherScript = Executable.replace_extension(".bat");
 
-	std::unique_ptr<char[]> CommandLine(_strdup(std::format("cmd.exe /c {}", LauncherScript.string()).c_str()));
-	//std::unique_ptr<char[]> CommandLine(_strdup(LauncherScript.string().c_str()));
+	std::unique_ptr<char[]> CommandLine(_strdup(LauncherScript.string().c_str()));
 
 	STARTUPINFO StartupInfo;
 	ZeroMemory(&StartupInfo, sizeof(StartupInfo));
@@ -44,9 +45,9 @@ int main()
 	PROCESS_INFORMATION ProcessInfo;
 	ZeroMemory(&ProcessInfo, sizeof(ProcessInfo));
 
-	if (!CreateProcess(NULL, CommandLine.get(), NULL, NULL, FALSE, 0, NULL, NULL, &StartupInfo, &ProcessInfo))
+	if (!CreateProcessA(NULL, CommandLine.get(), NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &StartupInfo, &ProcessInfo))
 	{
-		std::cerr << "CreateProcess for " << CommandLine << " failed " << GetLastError() << std::endl;
+		std::cerr << "CreateProcessA for " << CommandLine << " failed " << GetLastError() << std::endl;
 		return 2;
 	}
 
